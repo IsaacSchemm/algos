@@ -1,43 +1,8 @@
-(*
--- ἔνθ᾽ οἵ γ᾽ ἄλγε᾽ ἔχοντες ὑπὸ χθονὶ ναιετάοντες
--- εἵατ᾽ ἐπ᾽ ἐσχατιῇ, μεγάλης ἐν πείρασι γαίης,
--- δηθὰ μάλ᾽ ἀχνύμενοι, κραδίῃ μέγα πένθος ἔχοντες. 
-
--- and he made them live beneath the wide-pathed earth,
--- where they were afflicted, being set to dwell under the ground,
--- at the end of the earth, at its great borders,
--- in bitter anguish for a long time and with great grief at heart.
--- Hesiod, Theogony, 620
-*)
-
 open AlgosTypes
-open OldTypes
 open Printf
 
-let ver = "2.0"
 let ($) f x = f x
 let (<.>) f g x = f (g x)
-
-let rec mapExpr v e =
-  match e with
-    One -> Var v
-  | Zero -> Zero
-  | Var s when s = v -> Var s
-  | Var s -> Mult (Var v, Var s)
-  | Inv (Var s) when s = v -> Inv (Var s)
-  | Inv (e1) -> Inv (mapExpr v e1)
-  | Plus (e1,e2) -> Plus ((mapExpr v e1), (mapExpr v e2))
-  | Mult (e1,Var s) as e -> 
-    if s = v then 
-      e
-    else
-      Mult (e1, Mult (Var s, Var v))
-  | Mult (Var s, e1) as e-> 
-    if s = v then 
-      e
-    else
-      Mult (e1, Mult (Var s, Var v))
-  | Mult (e1,e2) -> Mult ((mapExpr v e1), (mapExpr v e2))
 
 let rec isProductForm e =
   match e with 
@@ -56,6 +21,7 @@ let rec isSumProductForm e =
   | _ -> false
 
 let rec normalize e =
+  printf "-- %s\n" (expr2string e);
   match e with
     Mult (Plus (e1,e2), Plus (e3,e4)) -> 
       let e1' = normalize (Mult (e1,e3)) in
@@ -93,70 +59,71 @@ let rec normalize e =
     Plus (Mult (e1, x), Mult (e2, x))
   | Mult (x, Plus (e1, e2)) ->
     Plus (Mult (x, e1), Mult (x, e2))
+  | Not (Plus (e1, e2)) ->
+    let e1' = normalize (Not e1) in
+    let e2' = normalize (Not e2) in
+    normalize (Mult (e1', e2'))
+  | Not (Mult (e1, e2)) ->
+    let e1' = normalize (Not e1) in
+    let e2' = normalize (Not e2) in
+    normalize (Plus (e1', e2'))
+  | Mult (Not n, Plus (e1, e2)) ->
+    (* Distribute NOT across OR: !A & (B | C) -> (!A & B) | (!A & C) *)
+    let e1' = normalize (Mult (Not n, e1)) in
+    let e2' = normalize (Mult (Not n, e2)) in
+    Plus (e1', e2')
+  | Mult (Plus (e1, e2), Not n) ->
+    (* Distribute NOT across OR: (B | C) & !A -> (B & !A) | (C & !A) *)
+    let e1' = normalize (Mult (e1, Not n)) in
+    let e2' = normalize (Mult (e2, Not n)) in
+    Plus (e1', e2')
+  | Not (Not e1) ->
+    e1
+  | Xor (e1, e2) ->
+    let e1' = Mult (e1, Not e2) in
+    let e2' = Mult (Not e1, e2) in
+    normalize (Plus (e1', e2'))
+  | Mult (Xor (x1, x2), e) ->
+    let x1' = normalize (Xor (x1, x2)) in
+    Mult (x1', e)
   | e1 -> e1
-(*	
-  | Mult (Var s, e1) as e-> 
-    if s = v then 
-      e
-    else
-      Mult (e1, Mult (Var s, Var v))
-  | Mult (e1,e2) -> Mult ((mapExpr v e1), (mapExpr v e2))
-*)
-
-let rec solve e =
-  match e with
-    One -> One
-  | Zero -> Zero
-  | Var s -> Var s
-  | Inv (Plus (e1,e2)) -> Plus (solve $ Inv (e1), solve $ Inv (e2))
-  | Inv (Inv (e1)) -> solve e1
-  | Plus (e1, Zero) -> solve e1
-  | Plus (Zero, e1) -> solve e1
-  | Plus (e1, Inv (e2)) when e1 = e2 -> Zero
-  | Plus (Inv (e1), e2) when e1 = e2 -> Zero
-  (* after product-sum normal form? *)
-  | Mult (Zero, e1) -> Zero
-  | Mult (e1, Zero) -> Zero
-  | Mult (e1, One) -> solve e1
-  | Mult (One, e1) -> solve e1
-  | Mult (Var s1, Var s2) when s1 = s2 -> Var s1
-  | Mult (e1, Var s) -> solve $ mapExpr s e1
-  | Mult (Var s, e1) -> solve $ mapExpr s e1
-  | etc -> etc
 
 let explode s =
   let rec exp i l =
     if i < 0 then l else exp (i - 1) (s.[i] :: l) in
   exp (String.length s - 1) []
 
-let rec string_to_expr stack line =
+let rec postfix_string_to_expr stack line =
   match (line, stack) with
-    | ('+' :: x, a :: b :: y) ->
-    string_to_expr (Plus (a, b) :: y) x
+  | ('+' :: x, a :: b :: y) ->
+    postfix_string_to_expr (Plus (a, b) :: y) x
   | ('*' :: x, a :: b :: y) ->
-    string_to_expr (Mult (a, b) :: y) x
-  | ('!' :: x, a :: y) ->
-    string_to_expr (Inv a :: y) x
+    postfix_string_to_expr (Mult (a, b) :: y) x
+  | ('^' :: x, a :: b :: y) ->
+    postfix_string_to_expr (Xor (a, b) :: y) x
+  | ('-' :: x, a :: y) ->
+    postfix_string_to_expr (Inv a :: y) x
+  | ('~' :: x, a :: y) ->
+    postfix_string_to_expr (Not a :: y) x
   | ('0' :: x, y) ->
-    string_to_expr (Zero :: y) x
+    postfix_string_to_expr (Zero :: y) x
   | ('1' :: x, y) ->
-    string_to_expr (One :: y) x
+    postfix_string_to_expr (One :: y) x
   | (v :: x, y) ->
     let name = sprintf "%c" v in
-    string_to_expr (Var name :: y) x
+    postfix_string_to_expr (Var name :: y) x
   | ([], [f]) ->
     f
   | ([], _) ->
     failwith "Invalid expression"
 
-(* move major functions out of this *)
 let rec parse () =
-  print_string "<αλγος> ";
+  print_string "<rpnben> ";
   flush stdout;
   try
     let line = input_line stdin in
     let list = explode line in
-    let e = string_to_expr [] list in
+    let e = postfix_string_to_expr [] list in
     printf "%s\n" (expr2string e);
     printf "%s\n" (expr2string (normalize e));
     flush stdout;
@@ -164,14 +131,13 @@ let rec parse () =
   with
     End_of_file -> 
       begin 
-	print_string "Leaving algos.\n";
+	print_string "Leaving rpnben.\n";
 	flush stdout
       end
 
-(* make more modular *)
 let _ = 
   begin
-    print_string $ "Welcome to αλγος " ^ ver ^ ":\n";
+    print_string $ "Welcome to rpnben:\n";
     parse ();
     exit 0;
   end
