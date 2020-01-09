@@ -14,6 +14,7 @@ module VarSet = Set.Make(
  | Zero
  | Var of string
  | Inv of expr
+ | Not of expr
  | Plus of expr * expr
  | Mult of expr * expr
 
@@ -23,6 +24,7 @@ let rec expr2string expr =
   | Zero -> "0"
   | Var v -> v
   | Inv expr1 -> "(" ^ "−" ^ (expr2string expr1) ^ ")"
+  | Not expr1 -> "(" ^ "~" ^ (expr2string expr1) ^ ")"
   | Plus (expr1,expr2) -> "(" ^ (expr2string expr1) ^ " + " ^ (expr2string expr2) ^ ")"
   | Mult (expr1,expr2) -> "(" ^ (expr2string expr1) ^ " × " ^ (expr2string expr2) ^ ")"
 

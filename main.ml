@@ -54,6 +54,24 @@ let rec normalize e =
     let e1' = normalize e1 in 
     let e2' = normalize e2 in 
     Plus (e1', e2')
+  | Not (Plus (e1, e2)) ->
+    let e1' = normalize (Not e1) in
+    let e2' = normalize (Not e2) in
+    normalize (Mult (e1', e2'))
+  | Not (Mult (e1, e2)) ->
+    let e1' = normalize (Not e1) in
+    let e2' = normalize (Not e2) in
+    normalize (Plus (e1', e2'))
+  | Mult (Not n, Plus (e1, e2)) ->
+    let e1' = normalize (Mult (Not n, e1)) in
+    let e2' = normalize (Mult (Not n, e2)) in
+    Plus (e1', e2')
+  | Mult (Plus (e1, e2), Not n) ->
+    let e1' = normalize (Mult (e1, Not n)) in
+    let e2' = normalize (Mult (e2, Not n)) in
+    Plus (e1', e2')
+  | Not (Not e1) ->
+    e1
   | e1 -> e1
 
 let explode s =
@@ -69,6 +87,8 @@ let rec postfix_string_to_expr stack line =
     postfix_string_to_expr (Mult (a, b) :: y) x
   | ('-' :: x, a :: y) ->
     postfix_string_to_expr (Inv a :: y) x
+  | ('~' :: x, a :: y) ->
+    postfix_string_to_expr (Not a :: y) x
   | ('0' :: x, y) ->
     postfix_string_to_expr (Zero :: y) x
   | ('1' :: x, y) ->
