@@ -4,27 +4,6 @@ open Printf
 let ($) f x = f x
 let (<.>) f g x = f (g x)
 
-let rec mapExpr v e =
-  match e with
-    One -> Var v
-  | Zero -> Zero
-  | Var s when s = v -> Var s
-  | Var s -> Mult (Var v, Var s)
-  | Inv (Var s) when s = v -> Inv (Var s)
-  | Inv (e1) -> Inv (mapExpr v e1)
-  | Plus (e1,e2) -> Plus ((mapExpr v e1), (mapExpr v e2))
-  | Mult (e1,Var s) as e -> 
-    if s = v then 
-      e
-    else
-      Mult (e1, Mult (Var s, Var v))
-  | Mult (Var s, e1) as e-> 
-    if s = v then 
-      e
-    else
-      Mult (e1, Mult (Var s, Var v))
-  | Mult (e1,e2) -> Mult ((mapExpr v e1), (mapExpr v e2))
-
 let rec isProductForm e =
   match e with 
     Var v1 -> true
