@@ -89,6 +89,10 @@ let rec normalize e =
     let e1' = normalize e1 in 
     let e2' = normalize e2 in 
     Plus (e1', e2')
+  | Mult (Plus (e1, e2), x) ->
+    Plus (Mult (e1, x), Mult (e2, x))
+  | Mult (x, Plus (e1, e2)) ->
+    Plus (Mult (x, e1), Mult (x, e2))
   | e1 -> e1
 (*	
   | Mult (Var s, e1) as e-> 
