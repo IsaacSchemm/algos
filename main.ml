@@ -120,6 +120,30 @@ let rec solve e =
   | Mult (Var s, e1) -> solve $ mapExpr s e1
   | etc -> etc
 
+let explode s =
+  let rec exp i l =
+    if i < 0 then l else exp (i - 1) (s.[i] :: l) in
+  exp (String.length s - 1) []
+
+let rec string_to_expr stack line =
+  match (line, stack) with
+    | ('+' :: x, a :: b :: y) ->
+    string_to_expr (Plus (a, b) :: y) x
+  | ('*' :: x, a :: b :: y) ->
+    string_to_expr (Mult (a, b) :: y) x
+  | ('!' :: x, a :: y) ->
+    string_to_expr (Inv a :: y) x
+  | ('0' :: x, y) ->
+    string_to_expr (Zero :: y) x
+  | ('1' :: x, y) ->
+    string_to_expr (One :: y) x
+  | (v :: x, y) ->
+    let name = sprintf "%c" v in
+    string_to_expr (Var name :: y) x
+  | ([], [f]) ->
+    f
+  | ([], _) ->
+    failwith "Invalid expression"
 
 (* move major functions out of this *)
 let rec parse () =
@@ -127,31 +151,10 @@ let rec parse () =
   flush stdout;
   try
     let line = input_line stdin in
-    (try
-       let res = (BooleanParser.boolean1 BooleanLexer.lex (Lexing.from_string line)) in
-       begin 
-	 print_string "Parsed: ";
-	 print_boolean res;
-	 let expr = boolean2expr res in
- 	 let v = vars expr in
-(*	 let term = expr2term expr in *)
-	 Printf.printf "Variables(%d):%s\n" (VarSet.cardinal v) (varset2string v);
-	 print_string "Algebraic form: ";
-	 print_expr expr;
-(*
-	 print_string "Normalized form: ";
-	 print_expr <.> normalize $ expr;
-	 print_string "Term form: ";
-	 print_term term;
-*)
-	 let oldAlgos = expr2algos expr in
-	 print_string "Algos reduced form: ";
-	 print_algos <.> reduce $ oldAlgos;
-       end
-     with
-     | Parsing.Parse_error       -> print_string ("$P" ^ line ^ "\n")
-     | _                         -> print_string ("Error: cannot parse \"" ^ line ^ "\"\n")
-);
+    let list = explode line in
+    let e = string_to_expr [] list in
+    printf "%s\n" (expr2string e);
+    printf "%s\n" (expr2string (normalize e));
     flush stdout;
     parse ();
   with
