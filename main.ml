@@ -89,9 +89,11 @@ let explode s =
 
 let rec postfix_string_to_expr stack line =
   match (line, stack) with
-  | ('+' :: x, a :: b :: y) ->
+  | ('+' :: x, a :: b :: y)
+  | ('|' :: x, a :: b :: y) ->
     postfix_string_to_expr (Plus (a, b) :: y) x
-  | ('*' :: x, a :: b :: y) ->
+  | ('*' :: x, a :: b :: y)
+  | ('&' :: x, a :: b :: y) ->
     postfix_string_to_expr (Mult (a, b) :: y) x
   | ('^' :: x, a :: b :: y) ->
     postfix_string_to_expr (Xor (a, b) :: y) x
