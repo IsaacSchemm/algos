@@ -21,6 +21,7 @@ let rec isSumProductForm e =
   | _ -> false
 
 let rec normalize e =
+  printf "-- %s\n" (expr2string e);
   match e with
     Mult (Plus (e1,e2), Plus (e3,e4)) -> 
       let e1' = normalize (Mult (e1,e3)) in
@@ -63,15 +64,24 @@ let rec normalize e =
     let e2' = normalize (Not e2) in
     normalize (Plus (e1', e2'))
   | Mult (Not n, Plus (e1, e2)) ->
+    (* Distribute NOT across OR: !A & (B | C) -> (!A & B) | (!A & C) *)
     let e1' = normalize (Mult (Not n, e1)) in
     let e2' = normalize (Mult (Not n, e2)) in
     Plus (e1', e2')
   | Mult (Plus (e1, e2), Not n) ->
+    (* Distribute NOT across OR: (B | C) & !A -> (B & !A) | (C & !A) *)
     let e1' = normalize (Mult (e1, Not n)) in
     let e2' = normalize (Mult (e2, Not n)) in
     Plus (e1', e2')
   | Not (Not e1) ->
     e1
+  | Xor (e1, e2) ->
+    let e1' = Mult (e1, Not e2) in
+    let e2' = Mult (Not e1, e2) in
+    normalize (Plus (e1', e2'))
+  | Mult (Xor (x1, x2), e) ->
+    let x1' = normalize (Xor (x1, x2)) in
+    Mult (x1', e)
   | e1 -> e1
 
 let explode s =
@@ -85,6 +95,8 @@ let rec postfix_string_to_expr stack line =
     postfix_string_to_expr (Plus (a, b) :: y) x
   | ('*' :: x, a :: b :: y) ->
     postfix_string_to_expr (Mult (a, b) :: y) x
+  | ('^' :: x, a :: b :: y) ->
+    postfix_string_to_expr (Xor (a, b) :: y) x
   | ('-' :: x, a :: y) ->
     postfix_string_to_expr (Inv a :: y) x
   | ('~' :: x, a :: y) ->
