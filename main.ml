@@ -88,7 +88,7 @@ let rec postfix_string_to_expr stack line =
     postfix_string_to_expr (Plus (a, b) :: y) x
   | ('*' :: x, a :: b :: y) ->
     postfix_string_to_expr (Mult (a, b) :: y) x
-  | ('!' :: x, a :: y) ->
+  | ('-' :: x, a :: y) ->
     postfix_string_to_expr (Inv a :: y) x
   | ('0' :: x, y) ->
     postfix_string_to_expr (Zero :: y) x
